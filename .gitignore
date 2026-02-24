@@ -1,0 +1,151 @@
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Node modules
+node_modules/
+npm-debug.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Production build
+build/
+dist/
+out/
+.next/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+*.sublime-workspace
+.DS_Store
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Docker
+docker-compose.override.yml
+.dockerignore
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Runtime data
+tmp/
+temp/
+cache/
+
+# Temporary files
+*.tmp
+*.bak
+*.backup
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+mongodb/
+mongo-data/
+
+# Secrets and credentials
+secrets/
+*.pem
+*.key
+.htpasswd
+
+# Testing
+coverage/
+.nyc_output/
+
+# Package managers
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Temporary dependencies
+.pnp
+.pnp.js
+
+# Optional npm cache
+.npm
+
+# Optional REPL history
+.node_repl_history
+
+# Backup files
+*.backup
+*.bak
+*~
+
+# Certificates (if not version controlling)
+*.crt
+*.cert
+*.p12
+*.pfx
+
+# MongoDB backups
+mongo-backup/
+backup/
+dumps/
+
+# Email logs (if not using production email)
+email-logs/
+
+# PDF/Report files
+*.pdf
+reports/
+
+# Custom
+.venv/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Docker volumes (local development)
+postgresql_data/
+mysql_data/
+mongo_data/
+redis_data/
+
+# Build artifacts
+.next/
+.nuxt/
+dist/
+build/
+out/
+
+# IDE workspace settings (can customize per team)
+.vscode/extensions.json
+.idea/runConfigurations/
+
+# macOS
+.AppleDouble
+.LSOverride
+*.nlock
+
+# Linux
+.directory
+
+# Windows
+ehthumbs.db
+$RECYCLE.BIN/
+
+# Git-related
+.git/
+.gitmodules
+
+# Keep these important files
+!.env.example
+!.dockerignore
+!.gitignore
