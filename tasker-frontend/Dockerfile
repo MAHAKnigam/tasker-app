@@ -1,32 +1,23 @@
-# Build stage
-FROM node:22-alpine AS builder
+# Development stage
+FROM node:20-alpine
 
 WORKDIR /app
+
+# Install curl for healthcheck and dumb-init to handle signals properly
+RUN apk add --no-cache dumb-init curl
 
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies including dev dependencies for build
-RUN npm ci
+# Install dependencies with legacy peer deps
+RUN npm install --legacy-peer-deps
 
-# Build the application
-RUN npm run build
+# Install ajv explicitly to fix the module issue
+RUN npm install ajv@^8.12.0
 
-# Final stage
-FROM node:22-alpine
-
-WORKDIR /app
-
-# Install dumb-init to handle signals properly
-RUN apk add --no-cache dumb-init
-
-# Copy from builder - built app
-COPY --from=builder /app/build ./build
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/node_modules ./node_modules
-
-# Copy package files
-COPY package*.json ./
+# Copy source code
+COPY src ./src
+COPY public ./public
 
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs && \
@@ -41,16 +32,16 @@ USER nodejs
 EXPOSE 3000
 
 # Environment variables
-ENV REACT_APP_API_URL=http://localhost:5000 \
-    NODE_ENV=production
+ENV REACT_APP_API_URL=http://backend:5000 \
+    NODE_ENV=development \
+    NODE_OPTIONS=--max-old-space-size=2048
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD wget --quiet --tries=1 --spider http://localhost:3000 || exit 1
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:3000 || exit 1
 
 # Use dumb-init to handle signals
 ENTRYPOINT ["dumb-init", "--"]
 
-# Start application with serve (install serve for production)
-RUN npm install -g serve
-CMD ["serve", "-s", "build", "-l", "3000"]
+# Start application in development mode
+CMD ["npm", "start"]
