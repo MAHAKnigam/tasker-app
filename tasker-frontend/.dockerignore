@@ -1,16 +1,33 @@
+# Dependencies
 node_modules
 npm-debug.log
-.git
-.gitignore
-README.md
+
+# Environment files
 .env
 .env.local
-.DS_Store
+.env.*.local
+
+# Git
+.git
+.gitignore
+
+# IDE
 .vscode
 .idea
-build
+*.swp
+*.swo
+
+# Logs
+logs
+*.log
+
+# Test
 coverage
-.next
-out
-public
-src
+.nyc_output
+
+# Build (we'll rebuild in container)
+build
+
+# Misc
+.DS_Store
+Thumbs.db
