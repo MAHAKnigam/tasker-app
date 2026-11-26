@@ -7,7 +7,25 @@ const { getNextDueDate } = require('../utils/recurrence');
 class TaskService {
   async createTask(taskData) {
     try {
-      // Accept only user-editable fields; ownership and recurrence-series metadata are server-controlled.\n      const data = {\n        title: taskData.title,\n        description: taskData.description,\n        status: taskData.status,\n        priority: taskData.priority,\n        dueDate: taskData.dueDate,\n        recurrence: taskData.recurrence,\n        tags: taskData.tags,\n        userId: taskData.userId,\n      };
+      const reminderMinutesBefore = taskData.reminderMinutesBefore === undefined ? 30 : taskData.reminderMinutesBefore;
+      if (![null, 5, 15, 30, 60, 1440].includes(reminderMinutesBefore)) {
+        return { success: false, error: 'Reminder must be disabled or set to a supported interval' };
+      }
+      const dueDate = taskData.dueDate ? new Date(taskData.dueDate) : null;
+      const data = {
+        title: taskData.title,
+        description: taskData.description,
+        status: taskData.status,
+        priority: taskData.priority,
+        dueDate,
+        reminderMinutesBefore,
+        reminderAt: dueDate && reminderMinutesBefore !== null
+          ? new Date(dueDate.getTime() - reminderMinutesBefore * 60000)
+          : null,
+        recurrence: taskData.recurrence,
+        tags: taskData.tags,
+        userId: taskData.userId,
+      };
       if (data.recurrence) {
         if (!data.dueDate) {
           return { success: false, error: 'A due date is required for recurring tasks' };
