@@ -136,7 +136,7 @@ function Dashboard() {
           <Link className="brand" to="/dashboard" aria-label="Tasker home">
             <span className="brand-mark">✓</span>
             <span>tasker<span className="brand-period">.</span></span>
-          </a>
+          </Link>
           <div className="user-info">
             <span className="welcome-copy">Hello, {user?.name || 'there'}</span>
             <button onClick={() => navigate('/teams')} className="header-button">Teams</button>
