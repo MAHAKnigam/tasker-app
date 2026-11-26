@@ -1,0 +1,20 @@
+# The deployable site is the React (Create React App) frontend in tasker-frontend/.
+# The Express/MongoDB API in tasker/ is a separate long-running server and is not
+# part of this static build.
+[build]
+  base = "tasker-frontend"
+  # There is no package-lock.json, so `npm ci` can't be used; install explicitly
+  # so react-scripts is always available before building.
+  command = "npm install --no-audit --no-fund && npm run build"
+  publish = "build"
+
+[build.environment]
+  # Matches the Node version used by the project's Dockerfile.
+  NODE_VERSION = "22"
+
+# The app uses react-router's BrowserRouter, so deep links such as /dashboard
+# must fall back to index.html instead of returning a 404.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
