@@ -39,6 +39,7 @@ const createTaskValidation = [
   body('priority').optional().isIn(['low', 'medium', 'high'])
     .withMessage('Invalid priority'),
   body('dueDate').optional().isISO8601().withMessage('Invalid date format'),
+  body('timeZone').optional().isString().isLength({ max: 64 }).withMessage('Invalid timezone'),
   body('reminderMinutesBefore').optional({ nullable: true }).isIn([5, 15, 30, 60, 1440]).withMessage('Reminder interval is invalid'),
   ...recurrenceValidation,
 ];
