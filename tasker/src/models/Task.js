@@ -16,6 +16,7 @@ const taskSchema = new mongoose.Schema(
     status: { type: String, enum: ['pending', 'in-progress', 'completed', 'cancelled'], default: 'pending' },
     priority: { type: String, enum: ['low', 'medium', 'high'], default: 'medium' },
     dueDate: { type: Date },
+    timeZone: { type: String, maxlength: 64, default: 'UTC' },
     reminderMinutesBefore: { type: Number, enum: [5, 15, 30, 60, 1440, null], default: 30 },
     reminderAt: { type: Date, default: null },
     reminderClaimedAt: { type: Date, default: null },
