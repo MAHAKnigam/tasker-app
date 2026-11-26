@@ -1,3 +1,5 @@
+require('dotenv').config();
+
 const webpush = require('web-push');
 const PushSubscription = require('../models/PushSubscription');
 
