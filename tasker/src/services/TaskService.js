@@ -18,6 +18,7 @@ class TaskService {
         status: taskData.status,
         priority: taskData.priority,
         dueDate,
+        timeZone: taskData.timeZone || 'UTC',
         reminderMinutesBefore,
         reminderAt: dueDate && reminderMinutesBefore !== null
           ? new Date(dueDate.getTime() - reminderMinutesBefore * 60000)
@@ -88,6 +89,7 @@ class TaskService {
         description: task.description,
         priority: task.priority,
         dueDate: nextDueDate,
+        timeZone: task.timeZone || 'UTC',
         reminderMinutesBefore: task.reminderMinutesBefore,
         reminderAt: task.reminderMinutesBefore === null ? null : new Date(new Date(nextDueDate).getTime() - task.reminderMinutesBefore * 60000),
         recurrence: task.recurrence,
@@ -107,7 +109,7 @@ class TaskService {
 
   async updateTask(taskId, userId, updateData) {
     try {
-      const allowedFields = ['title', 'description', 'status', 'priority', 'dueDate', 'tags', 'reminderMinutesBefore'];
+      const allowedFields = ['title', 'description', 'status', 'priority', 'dueDate', 'timeZone', 'tags', 'reminderMinutesBefore'];
       const safeUpdates = {};
       for (const field of allowedFields) {
         if (Object.prototype.hasOwnProperty.call(updateData, field)) safeUpdates[field] = updateData[field];
