@@ -7,7 +7,7 @@ const { getNextDueDate } = require('../utils/recurrence');
 class TaskService {
   async createTask(taskData) {
     try {
-      const data = { ...taskData };
+      // Accept only user-editable fields; ownership and recurrence-series metadata are server-controlled.\n      const data = {\n        title: taskData.title,\n        description: taskData.description,\n        status: taskData.status,\n        priority: taskData.priority,\n        dueDate: taskData.dueDate,\n        recurrence: taskData.recurrence,\n        tags: taskData.tags,\n        userId: taskData.userId,\n      };
       if (data.recurrence) {
         if (!data.dueDate) {
           return { success: false, error: 'A due date is required for recurring tasks' };
