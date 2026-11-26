@@ -70,6 +70,8 @@ class TaskService {
         description: task.description,
         priority: task.priority,
         dueDate: nextDueDate,
+        reminderMinutesBefore: task.reminderMinutesBefore,
+        reminderAt: task.reminderMinutesBefore === null ? null : new Date(new Date(nextDueDate).getTime() - task.reminderMinutesBefore * 60000),
         recurrence: task.recurrence,
         recurrenceSeriesId: task.recurrenceSeriesId,
         recurrenceIndex: nextIndex,
@@ -87,13 +89,33 @@ class TaskService {
 
   async updateTask(taskId, userId, updateData) {
     try {
-      const allowedFields = ['title', 'description', 'status', 'priority', 'dueDate', 'tags'];
+      const allowedFields = ['title', 'description', 'status', 'priority', 'dueDate', 'tags', 'reminderMinutesBefore'];
       const safeUpdates = {};
       for (const field of allowedFields) {
         if (Object.prototype.hasOwnProperty.call(updateData, field)) safeUpdates[field] = updateData[field];
       }
       if (Object.keys(safeUpdates).length === 0) {
         return { success: false, error: 'No valid task fields provided for update' };
+      }
+      if (Object.prototype.hasOwnProperty.call(safeUpdates, 'reminderMinutesBefore')) {
+        if (![null, 5, 15, 30, 60, 1440].includes(safeUpdates.reminderMinutesBefore)) {
+          return { success: false, error: 'Reminder must be disabled or set to a supported interval' };
+        }
+      }
+      if (Object.prototype.hasOwnProperty.call(safeUpdates, 'dueDate') || Object.prototype.hasOwnProperty.call(safeUpdates, 'reminderMinutesBefore')) {
+        const dueDate = Object.prototype.hasOwnProperty.call(safeUpdates, 'dueDate') ? safeUpdates.dueDate : undefined;
+        const reminderMinutes = Object.prototype.hasOwnProperty.call(safeUpdates, 'reminderMinutesBefore')
+          ? safeUpdates.reminderMinutesBefore
+          : undefined;
+        const existingTask = await Task.findOne({ _id: taskId, userId }).select('dueDate reminderMinutesBefore');
+        if (!existingTask) return { success: false, error: 'Task not found or not authorized' };
+        const effectiveDueDate = dueDate === undefined ? existingTask.dueDate : dueDate;
+        const effectiveReminder = reminderMinutes === undefined ? existingTask.reminderMinutesBefore : reminderMinutes;
+        safeUpdates.reminderAt = effectiveDueDate && effectiveReminder !== null
+          ? new Date(new Date(effectiveDueDate).getTime() - effectiveReminder * 60000)
+          : null;
+        safeUpdates.reminderSentAt = null;
+        safeUpdates.reminderClaimedAt = null;
       }
       if (safeUpdates.status === 'completed') safeUpdates.isCompleted = true;
       else if (safeUpdates.status && safeUpdates.status !== 'completed') safeUpdates.isCompleted = false;
