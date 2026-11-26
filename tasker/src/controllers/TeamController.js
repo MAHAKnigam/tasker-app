@@ -324,7 +324,9 @@ exports.regenerateInviteCode = async (req, res) => {
     res.status(200).json({
       success: true,
       message: 'Invite code regenerated',
-      message: team.inviteCode,
+      data: {
+        inviteCode: team.inviteCode,
+      },
     });
   } catch (error) {
     res.status(500).json({
