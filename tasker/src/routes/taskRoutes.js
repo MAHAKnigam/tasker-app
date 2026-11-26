@@ -39,6 +39,7 @@ const createTaskValidation = [
   body('priority').optional().isIn(['low', 'medium', 'high'])
     .withMessage('Invalid priority'),
   body('dueDate').optional().isISO8601().withMessage('Invalid date format'),
+  body('reminderMinutesBefore').optional({ nullable: true }).isIn([5, 15, 30, 60, 1440]).withMessage('Reminder interval is invalid'),
   ...recurrenceValidation,
 ];
 
@@ -52,6 +53,7 @@ const updateTaskValidation = [
   body('priority').optional().isIn(['low', 'medium', 'high'])
     .withMessage('Invalid priority'),
   body('dueDate').optional().isISO8601().withMessage('Invalid date format'),
+  body('reminderMinutesBefore').optional({ nullable: true }).isIn([5, 15, 30, 60, 1440]).withMessage('Reminder interval is invalid'),
 ];
 
 router.post('/', createTaskValidation, (req, res) => TaskController.createTask(req, res));
