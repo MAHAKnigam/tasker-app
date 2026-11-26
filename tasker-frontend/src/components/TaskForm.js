@@ -6,6 +6,8 @@ function TaskForm({ onSubmit, onCancel }) {
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState('medium');
   const [dueDate, setDueDate] = useState('');
+  const [dueTime, setDueTime] = useState('09:00');
+  const [reminderMinutesBefore, setReminderMinutesBefore] = useState('30');
   const [repeat, setRepeat] = useState('none');
   const [repeatInterval, setRepeatInterval] = useState(1);
   const [repeatEndDate, setRepeatEndDate] = useState('');
@@ -17,6 +19,8 @@ function TaskForm({ onSubmit, onCancel }) {
     setDescription('');
     setPriority('medium');
     setDueDate('');
+    setDueTime('09:00');
+    setReminderMinutesBefore('30');
     setRepeat('none');
     setRepeatInterval(1);
     setRepeatEndDate('');
@@ -41,7 +45,8 @@ function TaskForm({ onSubmit, onCancel }) {
         title: title.trim(),
         description: description.trim(),
         priority,
-        dueDate: dueDate ? new Date(dueDate).toISOString() : undefined,
+        dueDate: dueDate ? new Date(dueDate + 'T' + dueTime).toISOString() : undefined,
+        reminderMinutesBefore: dueDate ? (reminderMinutesBefore === 'none' ? null : Number(reminderMinutesBefore)) : null,
         ...(repeat !== 'none' && {
           recurrence: {
             frequency: repeat,
@@ -99,6 +104,26 @@ function TaskForm({ onSubmit, onCancel }) {
             <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
           </div>
         </div>
+
+        {dueDate && (
+          <div className="form-row">
+            <div className="form-group">
+              <label>Due Time (your local time)</label>
+              <input type="time" value={dueTime} onChange={(e) => setDueTime(e.target.value)} required />
+            </div>
+            <div className="form-group">
+              <label>Email & device reminder</label>
+              <select value={reminderMinutesBefore} onChange={(e) => setReminderMinutesBefore(e.target.value)}>
+                <option value="none">No reminder</option>
+                <option value="5">5 minutes before</option>
+                <option value="15">15 minutes before</option>
+                <option value="30">30 minutes before (recommended)</option>
+                <option value="60">1 hour before</option>
+                <option value="1440">1 day before</option>
+              </select>
+            </div>
+          </div>
+        )}
 
         <div className="form-group">
           <label>Repeat</label>
