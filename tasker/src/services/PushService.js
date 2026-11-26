@@ -55,8 +55,10 @@ class PushService {
     let sent = 0;
     let failed = 0;
     for (const item of subscriptions) {
+      if (payload.tag && item.lastReminderTag === payload.tag) continue;
       try {
         await webpush.sendNotification(item.subscription, JSON.stringify(payload));
+        await PushSubscription.updateOne({ _id: item._id }, { $set: { lastReminderTag: payload.tag || null } });
         sent += 1;
       } catch (error) {
         if (error.statusCode === 404 || error.statusCode === 410) {
