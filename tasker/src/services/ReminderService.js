@@ -5,6 +5,18 @@ const PushService = require('./PushService');
 
 const CLAIM_TIMEOUT_MS = 5 * 60 * 1000;
 
+const formatDueDate = (task) => {
+  try {
+    return new Intl.DateTimeFormat(undefined, {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+      timeZone: task.timeZone || 'UTC',
+    }).format(new Date(task.dueDate));
+  } catch (error) {
+    return new Date(task.dueDate).toISOString();
+  }
+};
+
 class ReminderService {
   async processDueReminders() {
     const now = new Date();
@@ -42,7 +54,7 @@ class ReminderService {
 
         let emailSent = Boolean(task.emailReminderSentAt);
         let pushSent = Boolean(task.pushReminderSentAt);
-        const dueText = new Date(task.dueDate).toLocaleString();
+        const dueText = formatDueDate(task);
         const payload = {
           title: 'Task reminder',
           body: task.title + ' is due at ' + dueText,
