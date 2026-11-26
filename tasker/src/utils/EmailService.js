@@ -3,6 +3,18 @@ const dotenv = require('dotenv');
 
 dotenv.config();
 
+const formatDueDate = (task) => {
+  try {
+    return new Intl.DateTimeFormat(undefined, {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+      timeZone: task.timeZone || 'UTC',
+    }).format(new Date(task.dueDate));
+  } catch (error) {
+    return new Date(task.dueDate).toISOString();
+  }
+};
+
 const transporter = nodemailer.createTransport({
   host: process.env.EMAIL_HOST || 'smtp.gmail.com',
   port: Number(process.env.EMAIL_PORT || 587),
@@ -54,7 +66,7 @@ class EmailService {
 
   async sendTaskReminder(user, task) {
     try {
-      const dueText = new Date(task.dueDate).toLocaleString();
+      const dueText = formatDueDate(task);
       const appUrl = (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '');
       await transporter.sendMail({
         from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
