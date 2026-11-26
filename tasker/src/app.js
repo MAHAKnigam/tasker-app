@@ -9,6 +9,7 @@ const userRoutes = require('./routes/userRoutes');
 const taskRoutes = require('./routes/taskRoutes');
 const chatbotRoutes = require('./routes/chatbotRoutes');
 const teamRoutes = require('./routes/teamRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
 const { getAllowedOrigins, isOriginAllowed } = require('./config/corsOptions');
 
 dotenv.config();
@@ -60,6 +61,7 @@ app.use('/api/users', authMiddleware, userRoutes);
 app.use('/api/tasks', authMiddleware, taskRoutes);
 app.use('/api/chatbot', chatbotRoutes);
 app.use('/api/teams', teamRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
