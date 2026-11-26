@@ -58,7 +58,8 @@ class ReminderService {
         }
 
         if (!pushSent && PushService.getPublicKey()) {
-          await PushService.sendToUser(user._id, payload);
+          const pushResult = await PushService.sendToUser(user._id, payload);
+          if (pushResult.failed > 0) throw new Error('One or more device notifications could not be delivered');
           pushSent = true;
           await Task.updateOne({ _id: task._id }, { $set: { pushReminderSentAt: new Date() } });
         }
