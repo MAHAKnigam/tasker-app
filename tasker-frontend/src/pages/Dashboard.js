@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { taskAPI, userAPI } from '../services/api';
 import TaskList from '../components/TaskList';
 import TaskForm from '../components/TaskForm';
@@ -131,7 +131,7 @@ function Dashboard() {
     <div className="dashboard-container">
       <header className="dashboard-header">
         <div className="header-content">
-          <a className="brand" href="/dashboard" aria-label="Tasker home">
+          <Link className="brand" to="/dashboard" aria-label="Tasker home">
             <span className="brand-mark">✓</span>
             <span>tasker<span className="brand-period">.</span></span>
           </a>
@@ -193,7 +193,7 @@ function Dashboard() {
           ) : (
             <div className="kanban-board">
               {COLUMNS.map((column) => {
-                const columnTasks = visibleTasks.filter((task) => (task.status || (task.isCompleted ? 'completed' : 'pending')) === column.id);
+                const columnTasks = visibleTasks.filter((task) => ((task.isCompleted || task.status === 'completed') ? 'completed' : (task.status || 'pending')) === column.id);
                 return (
                   <section className={`kanban-column column-${column.color}`} key={column.id}>
                     <div className="kanban-column-heading"><div><span className="column-dot" /><h3>{column.title}</h3></div><span className="column-count">{columnTasks.length}</span></div>
