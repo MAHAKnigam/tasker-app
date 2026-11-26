@@ -63,17 +63,23 @@ class ReminderService {
         };
 
         if (!emailSent) {
-          const result = await EmailService.sendTaskReminder(user, task);
-          if (!result.success) throw new Error(result.error || 'Reminder email could not be sent');
-          emailSent = true;
-          await Task.updateOne({ _id: task._id }, { $set: { emailReminderSentAt: new Date() } });
+          const emailResult = await EmailService.sendTaskReminder(user, task);
+          if (emailResult.success) {
+            emailSent = true;
+            await Task.updateOne({ _id: task._id }, { $set: { emailReminderSentAt: new Date() } });
+          } else {
+            console.error('Reminder email failed:', emailResult.error || 'Unknown email error');
+          }
         }
 
         if (!pushSent && PushService.getPublicKey()) {
           const pushResult = await PushService.sendToUser(user._id, payload);
-          if (pushResult.failed > 0) throw new Error('One or more device notifications could not be delivered');
-          pushSent = true;
-          await Task.updateOne({ _id: task._id }, { $set: { pushReminderSentAt: new Date() } });
+          if (pushResult.failed === 0) {
+            pushSent = true;
+            await Task.updateOne({ _id: task._id }, { $set: { pushReminderSentAt: new Date() } });
+          } else {
+            console.error('One or more device reminder deliveries failed; they will be retried.');
+          }
         }
 
         if (emailSent && (pushSent || !PushService.getPublicKey())) {
@@ -86,10 +92,7 @@ class ReminderService {
         }
       } catch (error) {
         console.error('Task reminder delivery failed:', error.message);
-        await Task.updateOne(
-          { _id: task._id },
-          { $unset: { reminderClaimedAt: 1 } }
-        );
+        await Task.updateOne({ _id: task._id }, { $unset: { reminderClaimedAt: 1 } });
       }
     }
   }
