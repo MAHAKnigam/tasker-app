@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { taskAPI, userAPI } from '../services/api';
+import { taskAPI, userAPI, notificationAPI } from '../services/api';
 import TaskList from '../components/TaskList';
 import TaskForm from '../components/TaskForm';
 import ChatBot from '../components/ChatBot';
@@ -23,6 +23,8 @@ function Dashboard() {
   const [showForm, setShowForm] = useState(false);
   const [error, setError] = useState('');
   const [movingTask, setMovingTask] = useState('');
+  const [notificationMessage, setNotificationMessage] = useState('');
+  const [notificationBusy, setNotificationBusy] = useState(false);
   const navigate = useNavigate();
 
   const fetchUserProfile = useCallback(async () => {
@@ -102,6 +104,38 @@ function Dashboard() {
     }
   };
 
+  const handleEnableNotifications = async () => {
+    setNotificationMessage('');
+    if (!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) {
+      setNotificationMessage('This browser does not support device push notifications.');
+      return;
+    }
+    setNotificationBusy(true);
+    try {
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') {
+        setNotificationMessage('Allow notifications in your browser settings to receive reminders.');
+        return;
+      }
+      const keyResponse = await notificationAPI.getPublicKey();
+      const registration = await navigator.serviceWorker.register('/service-worker.js');
+      const applicationServerKey = keyResponse.data.data.publicKey;
+      const padding = '='.repeat((4 - (applicationServerKey.length % 4)) % 4);
+      const raw = atob((applicationServerKey + padding).replace(/-/g, '+').replace(/_/g, '/'));
+      const key = Uint8Array.from(raw, (character) => character.charCodeAt(0));
+      const subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: key,
+      });
+      await notificationAPI.subscribe(subscription.toJSON());
+      setNotificationMessage('Device reminders are enabled on this browser.');
+    } catch (err) {
+      setNotificationMessage(err.response?.data?.error || 'Could not enable device reminders. Check that push notifications are configured.');
+    } finally {
+      setNotificationBusy(false);
+    }
+  };
+
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
@@ -139,6 +173,9 @@ function Dashboard() {
           </Link>
           <div className="user-info">
             <span className="welcome-copy">Hello, {user?.name || 'there'}</span>
+            <button onClick={handleEnableNotifications} className="header-button" disabled={notificationBusy}>
+              {notificationBusy ? 'Enabling…' : 'Enable notifications'}
+            </button>
             <button onClick={() => navigate('/calendar')} className="header-button">Calendar</button>
             <button onClick={() => navigate('/teams')} className="header-button">Teams</button>
             <button onClick={handleLogout} className="header-button header-button-muted">Log out</button>
@@ -166,6 +203,7 @@ function Dashboard() {
         </section>
 
         {showForm && <TaskForm onSubmit={handleAddTask} onCancel={() => setShowForm(false)} />}
+        {notificationMessage && <div className="dashboard-alert" role="status"><span>{notificationMessage}</span><button onClick={() => setNotificationMessage('')} aria-label="Dismiss notification message">×</button></div>}
         {error && <div className="dashboard-alert" role="alert"><span>{error}</span><button onClick={() => setError('')} aria-label="Dismiss error">×</button></div>}
 
         <section className="work-section">
