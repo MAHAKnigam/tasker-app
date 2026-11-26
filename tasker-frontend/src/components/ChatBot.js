@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import api from '../services/api';
 import '../styles/ChatBot.css';
 
 const ChatBot = () => {
@@ -36,7 +37,7 @@ const ChatBot = () => {
       timestamp: new Date()
     };
 
-    setMessages([...messages, userMessage]);
+    setMessages((prev) => [...prev, userMessage]);
     setInputValue('');
     setIsLoading(true);
 
@@ -53,8 +54,8 @@ const ChatBot = () => {
       const data = await response.json();
 
       const botMessage = {
-        id: messages.length + 2,
-        text: data.response,
+        id: Date.now() + 1,
+        text: data.response || 'I could not generate a response. Please try again.',
         sender: 'bot',
         timestamp: new Date()
       };
