@@ -36,6 +36,12 @@ export const taskAPI = {
   getByPriority: (priority) => api.get(`/tasks/priority/${priority}`),
 };
 
+export const notificationAPI = {
+  getPublicKey: () => api.get('/notifications/public-key'),
+  subscribe: (subscription) => api.post('/notifications/subscribe', subscription),
+  unsubscribe: (endpoint) => api.delete('/notifications/subscribe', { data: { endpoint } }),
+};
+
 export const teamAPI = {
   create: (data) => api.post('/teams', data),
   getAll: () => api.get('/teams'),
