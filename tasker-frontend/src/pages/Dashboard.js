@@ -139,6 +139,7 @@ function Dashboard() {
           </Link>
           <div className="user-info">
             <span className="welcome-copy">Hello, {user?.name || 'there'}</span>
+            <button onClick={() => navigate('/calendar')} className="header-button">Calendar</button>
             <button onClick={() => navigate('/teams')} className="header-button">Teams</button>
             <button onClick={handleLogout} className="header-button header-button-muted">Log out</button>
           </div>
