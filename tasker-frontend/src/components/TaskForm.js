@@ -46,6 +46,7 @@ function TaskForm({ onSubmit, onCancel }) {
         description: description.trim(),
         priority,
         dueDate: dueDate ? new Date(dueDate + 'T' + dueTime).toISOString() : undefined,
+        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
         reminderMinutesBefore: dueDate ? (reminderMinutesBefore === 'none' ? null : Number(reminderMinutesBefore)) : null,
         ...(repeat !== 'none' && {
           recurrence: {
