@@ -1,5 +1,14 @@
 const mongoose = require('mongoose');
 
+const recurrenceSchema = new mongoose.Schema(
+  {
+    frequency: { type: String, enum: ['daily', 'weekly', 'monthly'], required: true },
+    interval: { type: Number, min: 1, max: 365, default: 1 },
+    endDate: { type: Date, default: null },
+  },
+  { _id: false }
+);
+
 const taskSchema = new mongoose.Schema(
   {
     title: {
@@ -23,9 +32,13 @@ const taskSchema = new mongoose.Schema(
       enum: ['low', 'medium', 'high'],
       default: 'medium',
     },
-    dueDate: {
-      type: Date,
+    dueDate: { type: Date },
+    recurrence: { type: recurrenceSchema, default: null },
+    recurrenceSeriesId: {
+      type: mongoose.Schema.Types.ObjectId,
+      default: null,
     },
+    recurrenceIndex: { type: Number, default: 0, min: 0 },
     userId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
@@ -42,29 +55,26 @@ const taskSchema = new mongoose.Schema(
         ref: 'User',
       },
     ],
-    tags: {
-      type: [String],
-      default: [],
-    },
-    isCompleted: {
-      type: Boolean,
-      default: false,
-    },
+    tags: { type: [String], default: [] },
+    isCompleted: { type: Boolean, default: false },
     comments: [
       {
-        userId: {
-          type: mongoose.Schema.Types.ObjectId,
-          ref: 'User',
-        },
+        userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
         text: String,
-        createdAt: {
-          type: Date,
-          default: Date.now,
-        },
+        createdAt: { type: Date, default: Date.now },
       },
     ],
   },
   { timestamps: true }
+);
+
+// Each recurring series can have only one task for a given occurrence index.
+taskSchema.index(
+  { recurrenceSeriesId: 1, recurrenceIndex: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { recurrenceSeriesId: { $type: 'objectId' } },
+  }
 );
 
 module.exports = mongoose.model('Task', taskSchema);
