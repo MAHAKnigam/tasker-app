@@ -15,10 +15,29 @@ class PushService {
     return configured ? process.env.VAPID_PUBLIC_KEY : null;
   }
 
-  async saveSubscription(userId, subscription) {
+  validateSubscription(subscription) {
     if (!subscription?.endpoint || !subscription?.keys?.p256dh || !subscription?.keys?.auth) {
       throw new Error('A valid browser push subscription is required');
     }
+    let endpoint;
+    try {
+      endpoint = new URL(subscription.endpoint);
+    } catch (error) {
+      throw new Error('The push endpoint is invalid');
+    }
+    const host = endpoint.hostname.toLowerCase();
+    const allowedHost = host.endsWith('.push.services.mozilla.com')
+      || host.endsWith('.googleapis.com')
+      || host.endsWith('.push.apple.com')
+      || host.endsWith('.notify.windows.com')
+      || host.endsWith('.wns.windows.com');
+    if (endpoint.protocol !== 'https:' || !allowedHost) {
+      throw new Error('The push endpoint provider is not supported');
+    }
+  }
+
+  async saveSubscription(userId, subscription) {
+    this.validateSubscription(subscription);
     return PushSubscription.findOneAndUpdate(
       { endpoint: subscription.endpoint },
       { $set: { userId, subscription } },
@@ -31,9 +50,10 @@ class PushService {
   }
 
   async sendToUser(userId, payload) {
-    if (!configured) return { sent: 0, skipped: true };
+    if (!configured) return { sent: 0, failed: 0, skipped: true };
     const subscriptions = await PushSubscription.find({ userId });
     let sent = 0;
+    let failed = 0;
     for (const item of subscriptions) {
       try {
         await webpush.sendNotification(item.subscription, JSON.stringify(payload));
@@ -42,11 +62,12 @@ class PushService {
         if (error.statusCode === 404 || error.statusCode === 410) {
           await PushSubscription.deleteOne({ _id: item._id });
         } else {
+          failed += 1;
           console.error('Push delivery failed:', error.message);
         }
       }
     }
-    return { sent, skipped: false };
+    return { sent, failed, skipped: false };
   }
 }
 
