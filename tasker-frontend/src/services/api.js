@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // CRA embeds this value at build time. Set REACT_APP_API_URL to the backend
 // origin (for example, https://api.example.com) in production.
-const API_ORIGIN = (process.env.REACT_APP_API_URL || 'http://localhost:5000').replace(/\\/$/, '');
+const API_ORIGIN = (process.env.REACT_APP_API_URL || 'http://localhost:5000').replace(/\/$/, '');
 const api = axios.create({
   baseURL: `${API_ORIGIN}/api`,
 });
