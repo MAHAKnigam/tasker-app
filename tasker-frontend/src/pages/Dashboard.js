@@ -111,8 +111,10 @@ function Dashboard() {
   const visibleTasks = useMemo(() => {
     const query = search.trim().toLowerCase();
     return tasks.filter((task) => {
+      const isCompleted = task.isCompleted || task.status === 'completed';
+      const isCancelled = task.status === 'cancelled';
       const matchesFilter = filter === 'all'
-        || (filter === 'completed' ? task.isCompleted || task.status === 'completed' : !task.isCompleted && task.status !== 'completed');
+        || (filter === 'completed' ? isCompleted : !isCompleted && !isCancelled);
       const matchesSearch = !query
         || task.title?.toLowerCase().includes(query)
         || task.description?.toLowerCase().includes(query);
