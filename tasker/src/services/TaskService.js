@@ -133,6 +133,8 @@ class TaskService {
           ? new Date(new Date(effectiveDueDate).getTime() - effectiveReminder * 60000)
           : null;
         safeUpdates.reminderSentAt = null;
+        safeUpdates.emailReminderSentAt = null;
+        safeUpdates.pushReminderSentAt = null;
         safeUpdates.reminderClaimedAt = null;
       }
       if (safeUpdates.status === 'completed') safeUpdates.isCompleted = true;
