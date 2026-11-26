@@ -33,10 +33,15 @@ class ReminderService {
       try {
         const user = await User.findById(task.userId).select('name email');
         if (!user) {
-          await Task.updateOne({ _id: task._id }, { $set: { reminderSentAt: new Date() }, $unset: { reminderClaimedAt: 1 } });
+          await Task.updateOne({ _id: task._id }, {
+            $set: { reminderSentAt: new Date() },
+            $unset: { reminderClaimedAt: 1 },
+          });
           continue;
         }
 
+        let emailSent = Boolean(task.emailReminderSentAt);
+        let pushSent = Boolean(task.pushReminderSentAt);
         const dueText = new Date(task.dueDate).toLocaleString();
         const payload = {
           title: 'Task reminder',
@@ -44,25 +49,32 @@ class ReminderService {
           url: '/calendar',
           tag: 'task-reminder-' + task._id,
         };
-        const emailResult = await EmailService.sendTaskReminder(user, task);
-        const pushResult = await PushService.sendToUser(user._id, payload);
 
-        // Record the attempt once; a missing push subscription is a supported fallback.
-        // Email failures release the claim so the next worker pass can retry.
-        if (!emailResult.success) {
-          throw new Error(emailResult.error || 'Reminder email could not be sent');
+        if (!emailSent) {
+          const result = await EmailService.sendTaskReminder(user, task);
+          if (!result.success) throw new Error(result.error || 'Reminder email could not be sent');
+          emailSent = true;
+          await Task.updateOne({ _id: task._id }, { $set: { emailReminderSentAt: new Date() } });
         }
-        await Task.updateOne(
-          { _id: task._id, reminderClaimedAt: now },
-          { $set: { reminderSentAt: new Date() }, $unset: { reminderClaimedAt: 1 } }
-        );
-        if (pushResult.skipped) {
-          console.warn('Push reminders are not configured; email reminder was delivered.');
+
+        if (!pushSent && PushService.getPublicKey()) {
+          await PushService.sendToUser(user._id, payload);
+          pushSent = true;
+          await Task.updateOne({ _id: task._id }, { $set: { pushReminderSentAt: new Date() } });
+        }
+
+        if (emailSent && (pushSent || !PushService.getPublicKey())) {
+          await Task.updateOne(
+            { _id: task._id },
+            { $set: { reminderSentAt: new Date() }, $unset: { reminderClaimedAt: 1 } }
+          );
+        } else {
+          await Task.updateOne({ _id: task._id }, { $unset: { reminderClaimedAt: 1 } });
         }
       } catch (error) {
         console.error('Task reminder delivery failed:', error.message);
         await Task.updateOne(
-          { _id: task._id, reminderClaimedAt: now },
+          { _id: task._id },
           { $unset: { reminderClaimedAt: 1 } }
         );
       }
