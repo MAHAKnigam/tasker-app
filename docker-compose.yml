@@ -16,8 +16,16 @@ services:
       - JWT_SECRET=${JWT_SECRET}
       - JWT_EXPIRE=7d
       - CORS_ORIGIN=${CORS_ORIGIN:-http://localhost:3000}
+      - EMAIL_HOST=${EMAIL_HOST:-smtp.gmail.com}
+      - EMAIL_PORT=${EMAIL_PORT:-587}
+      - EMAIL_SECURE=${EMAIL_SECURE:-false}
       - EMAIL_USER=${EMAIL_USER:-}
       - EMAIL_PASSWORD=${EMAIL_PASSWORD:-}
+      - EMAIL_FROM=${EMAIL_FROM:-}
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
+      - VAPID_SUBJECT=${VAPID_SUBJECT:-mailto:notifications@tasker.local}
+      - VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY:-}
+      - VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY:-}
     restart: unless-stopped
     networks:
       - tasker-network
