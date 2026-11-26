@@ -11,70 +11,32 @@ const recurrenceSchema = new mongoose.Schema(
 
 const taskSchema = new mongoose.Schema(
   {
-    title: {
-      type: String,
-      required: [true, 'Please provide a task title'],
-      trim: true,
-      maxlength: [100, 'Title cannot be more than 100 characters'],
-    },
-    description: {
-      type: String,
-      trim: true,
-      maxlength: [500, 'Description cannot be more than 500 characters'],
-    },
-    status: {
-      type: String,
-      enum: ['pending', 'in-progress', 'completed', 'cancelled'],
-      default: 'pending',
-    },
-    priority: {
-      type: String,
-      enum: ['low', 'medium', 'high'],
-      default: 'medium',
-    },
+    title: { type: String, required: [true, 'Please provide a task title'], trim: true, maxlength: [100, 'Title cannot be more than 100 characters'] },
+    description: { type: String, trim: true, maxlength: [500, 'Description cannot be more than 500 characters'] },
+    status: { type: String, enum: ['pending', 'in-progress', 'completed', 'cancelled'], default: 'pending' },
+    priority: { type: String, enum: ['low', 'medium', 'high'], default: 'medium' },
     dueDate: { type: Date },
+    reminderMinutesBefore: { type: Number, enum: [5, 15, 30, 60, 1440, null], default: 30 },
+    reminderAt: { type: Date, default: null },
+    reminderClaimedAt: { type: Date, default: null },
+    reminderSentAt: { type: Date, default: null },
     recurrence: { type: recurrenceSchema, default: null },
-    recurrenceSeriesId: {
-      type: mongoose.Schema.Types.ObjectId,
-      default: null,
-    },
+    recurrenceSeriesId: { type: mongoose.Schema.Types.ObjectId, default: null },
     recurrenceIndex: { type: Number, default: 0, min: 0 },
-    userId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
-      required: [true, 'Task must belong to a user'],
-    },
-    teamId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Team',
-      default: null,
-    },
-    assignedTo: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User',
-      },
-    ],
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: [true, 'Task must belong to a user'] },
+    teamId: { type: mongoose.Schema.Types.ObjectId, ref: 'Team', default: null },
+    assignedTo: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
     tags: { type: [String], default: [] },
     isCompleted: { type: Boolean, default: false },
-    comments: [
-      {
-        userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-        text: String,
-        createdAt: { type: Date, default: Date.now },
-      },
-    ],
+    comments: [{ userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, text: String, createdAt: { type: Date, default: Date.now } }],
   },
   { timestamps: true }
 );
 
-// Each recurring series can have only one task for a given occurrence index.
-taskSchema.index(
-  { recurrenceSeriesId: 1, recurrenceIndex: 1 },
-  {
-    unique: true,
-    partialFilterExpression: { recurrenceSeriesId: { $type: 'objectId' } },
-  }
-);
+taskSchema.index({ recurrenceSeriesId: 1, recurrenceIndex: 1 }, {
+  unique: true,
+  partialFilterExpression: { recurrenceSeriesId: { $type: 'objectId' } },
+});
+taskSchema.index({ reminderAt: 1, reminderSentAt: 1, reminderClaimedAt: 1 });
 
 module.exports = mongoose.model('Task', taskSchema);
