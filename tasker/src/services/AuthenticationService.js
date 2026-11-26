@@ -10,31 +10,31 @@ class AuthenticationService {
   async register(userData) {
     try {
       const { name, email, password } = userData;
+      const normalizedEmail = email.trim().toLowerCase();
 
-      // Check if user already exists
-      let user = await User.findOne({ email });
-      if (user) {
-        return {
-          success: false,
-          error: 'User already exists',
-        };
+      const existingUser = await User.findOne({ email: normalizedEmail });
+      if (existingUser) {
+        return { success: false, error: 'User already exists' };
       }
 
-      // Create new user
-      user = new User({
+      const user = new User({
         name,
-        email,
+        email: normalizedEmail,
         password,
       });
 
       await user.save();
 
-      // Send welcome email
-      await EmailService.sendWelcomeEmail(user);
+      // Email delivery must not undo a successful account registration.
+      let welcomeEmailSent = true;
+      try {
+        await EmailService.sendWelcomeEmail(user);
+      } catch (emailError) {
+        welcomeEmailSent = false;
+        console.error('Welcome email could not be sent:', emailError);
+      }
 
-      // Generate token
       const token = this.generateToken(user._id);
-
       return {
         success: true,
         token,
@@ -43,12 +43,18 @@ class AuthenticationService {
           name: user.name,
           email: user.email,
         },
-        message: 'User registered successfully. Welcome email sent!',
+        message: welcomeEmailSent
+          ? 'User registered successfully. Welcome email sent!'
+          : 'User registered successfully. Welcome email could not be sent.',
       };
     } catch (error) {
+      if (error.code === 11000) {
+        return { success: false, error: 'User already exists' };
+      }
+      console.error('Registration service failed:', error);
       return {
         success: false,
-        error: error.message,
+        error: 'Unable to complete registration. Please try again.',
       };
     }
   }
@@ -57,37 +63,19 @@ class AuthenticationService {
   async login(credentials) {
     try {
       const { email, password } = credentials;
-
-      // Validate email & password
       if (!email || !password) {
-        return {
-          success: false,
-          error: 'Please provide email and password',
-        };
+        return { success: false, error: 'Please provide email and password' };
       }
 
-      // Check for user (include password in the query)
-      const user = await User.findOne({ email }).select('+password');
+      const user = await User.findOne({
+        email: email.trim().toLowerCase(),
+      }).select('+password');
 
-      if (!user) {
-        return {
-          success: false,
-          error: 'Invalid credentials',
-        };
+      if (!user || !(await user.matchPassword(password))) {
+        return { success: false, error: 'Invalid credentials' };
       }
 
-      // Check password
-      const isMatch = await user.matchPassword(password);
-      if (!isMatch) {
-        return {
-          success: false,
-          error: 'Invalid credentials',
-        };
-      }
-
-      // Generate token
       const token = this.generateToken(user._id);
-
       return {
         success: true,
         token,
@@ -99,69 +87,50 @@ class AuthenticationService {
         message: 'Login successful',
       };
     } catch (error) {
+      console.error('Login service failed:', error);
       return {
         success: false,
-        error: error.message,
+        error: 'Unable to complete login. Please try again.',
       };
     }
   }
 
-  // Generate JWT token
   generateToken(userId) {
     return jwt.sign({ id: userId }, process.env.JWT_SECRET, {
-      expiresIn: process.env.JWT_EXPIRE,
+      expiresIn: process.env.JWT_EXPIRE || '7d',
     });
   }
 
-  // Verify token
   verifyToken(token) {
     try {
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      return {
-        success: true,
-        data: decoded,
-      };
+      return { success: true, data: decoded };
     } catch (error) {
-      return {
-        success: false,
-        error: 'Invalid token',
-      };
+      return { success: false, error: 'Invalid token' };
     }
   }
 
-  // Change password
   async changePassword(userId, oldPassword, newPassword) {
     try {
       const user = await User.findById(userId).select('+password');
-
       if (!user) {
-        return {
-          success: false,
-          error: 'User not found',
-        };
+        return { success: false, error: 'User not found' };
       }
 
-      // Check old password
       const isMatch = await user.matchPassword(oldPassword);
       if (!isMatch) {
-        return {
-          success: false,
-          error: 'Old password is incorrect',
-        };
+        return { success: false, error: 'Old password is incorrect' };
       }
 
-      // Update password
       user.password = newPassword;
       await user.save();
 
-      return {
-        success: true,
-        message: 'Password changed successfully',
-      };
+      return { success: true, message: 'Password changed successfully' };
     } catch (error) {
+      console.error('Password change service failed:', error);
       return {
         success: false,
-        error: error.message,
+        error: 'Unable to change password. Please try again.',
       };
     }
   }
