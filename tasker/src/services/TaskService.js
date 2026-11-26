@@ -10,9 +10,14 @@ class TaskService {
       await task.save();
 
       // Send email notification
-      const user = await User.findById(taskData.userId);
-      if (user) {
-        await EmailService.sendTaskNotification(user, task, 'created');
+      try {
+        const user = await User.findById(taskData.userId);
+        if (user) {
+          await EmailService.sendTaskNotification(user, task, 'created');
+        }
+      } catch (notificationError) {
+        // Notification failures must not turn a successful task save into an API failure.
+        console.error('Task-created notification failed:', notificationError);
       }
 
       return {
@@ -111,10 +116,34 @@ class TaskService {
         };
       }
 
-      task = await Task.findByIdAndUpdate(taskId, updateData, {
-        new: true,
-        runValidators: true,
-      });
+      // Only allow editable task fields; never accept ownership or internal fields
+      // such as userId, teamId, assignedTo, or comments from the request body.
+      const allowedFields = ['title', 'description', 'status', 'priority', 'dueDate', 'tags'];
+      const safeUpdates = {};
+      for (const field of allowedFields) {
+        if (Object.prototype.hasOwnProperty.call(updateData, field)) {
+          safeUpdates[field] = updateData[field];
+        }
+      }
+
+      if (Object.keys(safeUpdates).length === 0) {
+        return {
+          success: false,
+          error: 'No valid task fields provided for update',
+        };
+      }
+
+      if (safeUpdates.status === 'completed') {
+        safeUpdates.isCompleted = true;
+      } else if (safeUpdates.status && safeUpdates.status !== 'completed') {
+        safeUpdates.isCompleted = false;
+      }
+
+      task = await Task.findOneAndUpdate(
+        { _id: taskId, userId },
+        { $set: safeUpdates },
+        { new: true, runValidators: true }
+      );
 
       return {
         success: true,
@@ -206,9 +235,13 @@ class TaskService {
       await task.save();
 
       // Send email notification
-      const user = await User.findById(userId);
-      if (user) {
-        await EmailService.sendTaskNotification(user, task, 'completed');
+      try {
+        const user = await User.findById(userId);
+        if (user) {
+          await EmailService.sendTaskNotification(user, task, 'completed');
+        }
+      } catch (notificationError) {
+        console.error('Task-completed notification failed:', notificationError);
       }
 
       return {
