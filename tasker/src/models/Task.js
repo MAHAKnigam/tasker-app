@@ -20,6 +20,8 @@ const taskSchema = new mongoose.Schema(
     reminderAt: { type: Date, default: null },
     reminderClaimedAt: { type: Date, default: null },
     reminderSentAt: { type: Date, default: null },
+    emailReminderSentAt: { type: Date, default: null },
+    pushReminderSentAt: { type: Date, default: null },
     recurrence: { type: recurrenceSchema, default: null },
     recurrenceSeriesId: { type: mongoose.Schema.Types.ObjectId, default: null },
     recurrenceIndex: { type: Number, default: 0, min: 0 },
