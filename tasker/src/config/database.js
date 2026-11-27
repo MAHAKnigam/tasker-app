@@ -3,21 +3,28 @@ const dotenv = require('dotenv');
 
 dotenv.config();
 
+let connectionPromise;
+
 const connectDB = async () => {
-  try {
-    const conn = await mongoose.connect(process.env.MONGODB_URI, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
+  if (mongoose.connection.readyState === 1) {
+    return mongoose.connection;
+  }
+
+  if (!process.env.MONGODB_URI) {
+    throw new Error('MONGODB_URI is not configured');
+  }
+
+  if (!connectionPromise) {
+    connectionPromise = mongoose.connect(process.env.MONGODB_URI, {
       retryWrites: true,
       w: 'majority',
+    }).catch((error) => {
+      connectionPromise = null;
+      throw error;
     });
-
-    console.log(`MongoDB Connected: ${conn.connection.host}`);
-    return conn;
-  } catch (error) {
-    console.error(`Error: ${error.message}`);
-    process.exit(1);
   }
+
+  return connectionPromise;
 };
 
 module.exports = connectDB;
