@@ -1,8 +1,8 @@
 import axios from 'axios';
 
-// CRA embeds this value at build time. Set REACT_APP_API_URL to the backend
-// origin (for example, https://api.example.com) in production.
-const API_ORIGIN = (process.env.REACT_APP_API_URL || 'http://localhost:5000').replace(/\/$/, '');
+// Use the same Netlify site for the API in production. The CRA proxy
+// forwards /api requests to localhost during local development.
+const API_ORIGIN = (process.env.REACT_APP_API_URL || '').replace(/\\/$/, '');
 const api = axios.create({
   baseURL: `${API_ORIGIN}/api`,
 });
