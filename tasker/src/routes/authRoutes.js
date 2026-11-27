@@ -1,6 +1,7 @@
 const express = require('express');
 const { body } = require('express-validator');
 const AuthController = require('../controllers/AuthController');
+const authMiddleware = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -29,9 +30,23 @@ const loginValidation = [
     .withMessage('Password is required'),
 ];
 
+const changePasswordValidation = [
+  body('oldPassword')
+    .notEmpty()
+    .withMessage('Current password is required'),
+  body('newPassword')
+    .isLength({ min: 8 })
+    .withMessage('New password must be at least 8 characters'),
+];
+
 // Routes
 router.post('/register', registerValidation, (req, res) => AuthController.register(req, res));
 router.post('/login', loginValidation, (req, res) => AuthController.login(req, res));
-router.post('/change-password', (req, res) => AuthController.changePassword(req, res));
+router.post(
+  '/change-password',
+  authMiddleware,
+  changePasswordValidation,
+  (req, res) => AuthController.changePassword(req, res)
+);
 
 module.exports = router;

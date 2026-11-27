@@ -1,35 +1,30 @@
 import axios from 'axios';
 
-const API_URL = 'http://localhost:5000/api';
-
+// Use the same Netlify site for the API in production. The CRA proxy
+// forwards /api requests to localhost during local development.
+const API_ORIGIN = (process.env.REACT_APP_API_URL || '').replace(/\/$/, '');
 const api = axios.create({
-  baseURL: API_URL,
+  baseURL: `${API_ORIGIN}/api`,
 });
 
-// Add token to requests
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
+  if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
 
-// Auth endpoints
 export const authAPI = {
   register: (data) => api.post('/auth/register', data),
   login: (data) => api.post('/auth/login', data),
   changePassword: (data) => api.post('/auth/change-password', data),
 };
 
-// User endpoints
 export const userAPI = {
   getProfile: () => api.get('/users/profile'),
   updateProfile: (id, data) => api.put(`/users/${id}`, data),
   getAll: () => api.get('/users'),
 };
 
-// Task endpoints
 export const taskAPI = {
   create: (data) => api.post('/tasks', data),
   getAll: (filters = {}) => api.get('/tasks', { params: filters }),
@@ -41,7 +36,12 @@ export const taskAPI = {
   getByPriority: (priority) => api.get(`/tasks/priority/${priority}`),
 };
 
-// Team endpoints
+export const notificationAPI = {
+  getPublicKey: () => api.get('/notifications/public-key'),
+  subscribe: (subscription) => api.post('/notifications/subscribe', subscription),
+  unsubscribe: (endpoint) => api.delete('/notifications/subscribe', { data: { endpoint } }),
+};
+
 export const teamAPI = {
   create: (data) => api.post('/teams', data),
   getAll: () => api.get('/teams'),

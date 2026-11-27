@@ -7,8 +7,9 @@ exports.createTeam = async (req, res) => {
   try {
     const { name, description, isPublic } = req.body;
     const userId = req.userId;
+    const normalizedName = typeof name === 'string' ? name.trim() : '';
 
-    if (!name || name.trim() === '') {
+    if (!normalizedName) {
       return res.status(400).json({
         success: false,
         message: 'Team name is required',
@@ -16,7 +17,7 @@ exports.createTeam = async (req, res) => {
     }
 
     // Check if team with same name already exists for this user
-    const existingTeam = await Team.findOne({ owner: userId, name });
+    const existingTeam = await Team.findOne({ owner: userId, name: normalizedName });
     if (existingTeam) {
       return res.status(400).json({
         success: false,
@@ -28,10 +29,10 @@ exports.createTeam = async (req, res) => {
     const inviteCode = crypto.randomBytes(6).toString('hex');
 
     const team = await Team.create({
-      name,
-      description: description || '',
+      name: normalizedName,
+      description: typeof description === 'string' ? description.trim() : '',
       owner: userId,
-      isPublic: isPublic || false,
+      isPublic: isPublic === true,
       inviteCode,
       members: [
         {
@@ -102,6 +103,24 @@ exports.getTeam = async (req, res) => {
       return res.status(403).json({
         success: false,
         message: 'You do not have access to this team',
+      });
+    }
+
+    // Public teams may be viewed by non-members, but their member list and
+    // contact details are private. Return only safe summary fields.
+    if (!isMember && !isOwner) {
+      return res.status(200).json({
+        success: true,
+        data: {
+          _id: team._id,
+          name: team.name,
+          description: team.description,
+          isPublic: team.isPublic,
+          taskCount: team.taskCount,
+          createdAt: team.createdAt,
+          owner: team.owner ? { _id: team.owner._id, name: team.owner.name } : null,
+          memberCount: team.members.length,
+        },
       });
     }
 
@@ -193,7 +212,22 @@ exports.removeMember = async (req, res) => {
       });
     }
 
-    // Remove member
+    // The owner must remain an owner/member; prevent self-removal.
+    if (team.owner.toString() === memberId) {
+      return res.status(400).json({
+        success: false,
+        message: 'The team owner cannot be removed',
+      });
+    }
+
+    const memberExists = team.members.some((m) => m.userId.toString() === memberId);
+    if (!memberExists) {
+      return res.status(404).json({
+        success: false,
+        message: 'Team member not found',
+      });
+    }
+
     team.members = team.members.filter(
       (m) => m.userId.toString() !== memberId
     );
@@ -238,9 +272,33 @@ exports.updateTeam = async (req, res) => {
       });
     }
 
-    if (name) team.name = name;
-    if (description !== undefined) team.description = description;
-    if (isPublic !== undefined) team.isPublic = isPublic;
+    if (name !== undefined) {
+      if (typeof name !== 'string' || !name.trim()) {
+        return res.status(400).json({
+          success: false,
+          message: 'Team name cannot be empty',
+        });
+      }
+      team.name = name.trim();
+    }
+    if (description !== undefined) {
+      if (typeof description !== 'string') {
+        return res.status(400).json({
+          success: false,
+          message: 'Team description must be text',
+        });
+      }
+      team.description = description.trim();
+    }
+    if (isPublic !== undefined) {
+      if (typeof isPublic !== 'boolean') {
+        return res.status(400).json({
+          success: false,
+          message: 'isPublic must be a boolean',
+        });
+      }
+      team.isPublic = isPublic;
+    }
 
     await team.save();
     await team.populate('members.userId', 'name email');
@@ -324,7 +382,9 @@ exports.regenerateInviteCode = async (req, res) => {
     res.status(200).json({
       success: true,
       message: 'Invite code regenerated',
-      message: team.inviteCode,
+      data: {
+        inviteCode: team.inviteCode,
+      },
     });
   } catch (error) {
     res.status(500).json({

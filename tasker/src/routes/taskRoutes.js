@@ -4,59 +4,59 @@ const TaskController = require('../controllers/TaskController');
 
 const router = express.Router();
 
-// Validation middleware
-const createTaskValidation = [
-  body('title')
-    .trim()
-    .notEmpty()
-    .withMessage('Task title is required')
-    .isLength({ max: 100 })
-    .withMessage('Title cannot be more than 100 characters'),
-  body('description')
+const recurrenceValidation = [
+  body('recurrence').optional().isObject().withMessage('Recurrence must be an object'),
+  body('recurrence.frequency')
     .optional()
-    .trim()
-    .isLength({ max: 500 })
-    .withMessage('Description cannot be more than 500 characters'),
-  body('status')
+    .isIn(['daily', 'weekly', 'monthly'])
+    .withMessage('Recurrence frequency must be daily, weekly, or monthly'),
+  body('recurrence.interval')
     .optional()
-    .isIn(['pending', 'in-progress', 'completed', 'cancelled'])
-    .withMessage('Invalid status'),
-  body('priority')
-    .optional()
-    .isIn(['low', 'medium', 'high'])
-    .withMessage('Invalid priority'),
-  body('dueDate')
-    .optional()
+    .isInt({ min: 1, max: 365 })
+    .withMessage('Recurrence interval must be a whole number between 1 and 365'),
+  body('recurrence.endDate')
+    .optional({ nullable: true })
     .isISO8601()
-    .withMessage('Invalid date format'),
+    .withMessage('Recurrence end date must be a valid date'),
+  body('recurrence').custom((value, { req }) => {
+    if (value && !req.body.dueDate) {
+      throw new Error('A due date is required for recurring tasks');
+    }
+    if (value && !value.frequency) {
+      throw new Error('Recurrence frequency is required');
+    }
+    return true;
+  }),
+];
+
+const createTaskValidation = [
+  body('title').trim().notEmpty().withMessage('Task title is required')
+    .isLength({ max: 100 }).withMessage('Title cannot be more than 100 characters'),
+  body('description').optional().trim().isLength({ max: 500 })
+    .withMessage('Description cannot be more than 500 characters'),
+  body('status').optional().isIn(['pending', 'in-progress', 'completed', 'cancelled'])
+    .withMessage('Invalid status'),
+  body('priority').optional().isIn(['low', 'medium', 'high'])
+    .withMessage('Invalid priority'),
+  body('dueDate').optional().isISO8601().withMessage('Invalid date format'),
+  body('timeZone').optional().isString().isLength({ max: 64 }).withMessage('Invalid timezone'),
+  body('reminderMinutesBefore').optional({ nullable: true }).isIn([5, 15, 30, 60, 1440]).withMessage('Reminder interval is invalid'),
+  ...recurrenceValidation,
 ];
 
 const updateTaskValidation = [
-  body('title')
-    .optional()
-    .trim()
-    .isLength({ max: 100 })
+  body('title').optional().trim().isLength({ max: 100 })
     .withMessage('Title cannot be more than 100 characters'),
-  body('description')
-    .optional()
-    .trim()
-    .isLength({ max: 500 })
+  body('description').optional().trim().isLength({ max: 500 })
     .withMessage('Description cannot be more than 500 characters'),
-  body('status')
-    .optional()
-    .isIn(['pending', 'in-progress', 'completed', 'cancelled'])
+  body('status').optional().isIn(['pending', 'in-progress', 'completed', 'cancelled'])
     .withMessage('Invalid status'),
-  body('priority')
-    .optional()
-    .isIn(['low', 'medium', 'high'])
+  body('priority').optional().isIn(['low', 'medium', 'high'])
     .withMessage('Invalid priority'),
-  body('dueDate')
-    .optional()
-    .isISO8601()
-    .withMessage('Invalid date format'),
+  body('dueDate').optional().isISO8601().withMessage('Invalid date format'),
+  body('reminderMinutesBefore').optional({ nullable: true }).isIn([5, 15, 30, 60, 1440]).withMessage('Reminder interval is invalid'),
 ];
 
-// Routes
 router.post('/', createTaskValidation, (req, res) => TaskController.createTask(req, res));
 router.get('/', (req, res) => TaskController.getUserTasks(req, res));
 router.get('/:id', (req, res) => TaskController.getTaskById(req, res));

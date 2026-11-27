@@ -1,244 +1,238 @@
+const mongoose = require('mongoose');
 const Task = require('../models/Task');
 const User = require('../models/User');
 const EmailService = require('../utils/EmailService');
+const { getNextDueDate } = require('../utils/recurrence');
 
 class TaskService {
-  // Create a new task
   async createTask(taskData) {
     try {
-      const task = new Task(taskData);
-      await task.save();
-
-      // Send email notification
-      const user = await User.findById(taskData.userId);
-      if (user) {
-        await EmailService.sendTaskNotification(user, task, 'created');
+      const reminderMinutesBefore = taskData.reminderMinutesBefore === undefined ? 30 : taskData.reminderMinutesBefore;
+      if (![null, 5, 15, 30, 60, 1440].includes(reminderMinutesBefore)) {
+        return { success: false, error: 'Reminder must be disabled or set to a supported interval' };
+      }
+      const dueDate = taskData.dueDate ? new Date(taskData.dueDate) : null;
+      const data = {
+        title: taskData.title,
+        description: taskData.description,
+        status: taskData.status,
+        priority: taskData.priority,
+        dueDate,
+        timeZone: taskData.timeZone || 'UTC',
+        reminderMinutesBefore,
+        reminderAt: dueDate && reminderMinutesBefore !== null
+          ? new Date(dueDate.getTime() - reminderMinutesBefore * 60000)
+          : null,
+        recurrence: taskData.recurrence,
+        tags: taskData.tags,
+        userId: taskData.userId,
+      };
+      if (data.recurrence) {
+        if (!data.dueDate) {
+          return { success: false, error: 'A due date is required for recurring tasks' };
+        }
+        data.recurrenceSeriesId = new mongoose.Types.ObjectId();
+        data.recurrenceIndex = 0;
       }
 
-      return {
-        success: true,
-        data: task,
-        message: 'Task created successfully',
-      };
+      const task = new Task(data);
+      await task.save();
+
+      try {
+        const user = await User.findById(taskData.userId);
+        if (user) await EmailService.sendTaskNotification(user, task, 'created');
+      } catch (notificationError) {
+        console.error('Task-created notification failed:', notificationError);
+      }
+
+      return { success: true, data: task, message: 'Task created successfully' };
     } catch (error) {
-      return {
-        success: false,
-        error: error.message,
-      };
+      return { success: false, error: error.message };
     }
   }
 
-  // Get all tasks for a user
   async getUserTasks(userId, filters = {}) {
     try {
       const query = { userId };
-
-      // Apply filters
-      if (filters.status) {
-        query.status = filters.status;
-      }
-      if (filters.priority) {
-        query.priority = filters.priority;
-      }
-      if (filters.isCompleted !== undefined) {
-        query.isCompleted = filters.isCompleted;
-      }
-
+      if (filters.status) query.status = filters.status;
+      if (filters.priority) query.priority = filters.priority;
+      if (filters.isCompleted !== undefined) query.isCompleted = filters.isCompleted;
       const tasks = await Task.find(query).sort({ createdAt: -1 });
-
-      return {
-        success: true,
-        data: tasks,
-        count: tasks.length,
-      };
+      return { success: true, data: tasks, count: tasks.length };
     } catch (error) {
-      return {
-        success: false,
-        error: error.message,
-      };
+      return { success: false, error: error.message };
     }
   }
 
-  // Get task by ID
   async getTaskById(taskId, userId) {
     try {
       const task = await Task.findById(taskId);
-
-      if (!task) {
-        return {
-          success: false,
-          error: 'Task not found',
-        };
-      }
-
-      // Check if task belongs to user
+      if (!task) return { success: false, error: 'Task not found' };
       if (task.userId.toString() !== userId) {
-        return {
-          success: false,
-          error: 'Not authorized to view this task',
-        };
+        return { success: false, error: 'Not authorized to view this task' };
       }
-
-      return {
-        success: true,
-        data: task,
-      };
+      return { success: true, data: task };
     } catch (error) {
-      return {
-        success: false,
-        error: error.message,
-      };
+      return { success: false, error: error.message };
     }
   }
 
-  // Update task
+  async createNextOccurrence(task) {
+    if (!task.recurrence || !task.recurrenceSeriesId || !task.dueDate) return null;
+    const nextDueDate = getNextDueDate(task.dueDate, task.recurrence);
+    if (!nextDueDate) return null;
+
+    const nextIndex = (task.recurrenceIndex || 0) + 1;
+    try {
+      return await Task.create({
+        title: task.title,
+        description: task.description,
+        priority: task.priority,
+        dueDate: nextDueDate,
+        timeZone: task.timeZone || 'UTC',
+        reminderMinutesBefore: task.reminderMinutesBefore,
+        reminderAt: task.reminderMinutesBefore === null ? null : new Date(new Date(nextDueDate).getTime() - task.reminderMinutesBefore * 60000),
+        recurrence: task.recurrence,
+        recurrenceSeriesId: task.recurrenceSeriesId,
+        recurrenceIndex: nextIndex,
+        userId: task.userId,
+        teamId: task.teamId,
+        assignedTo: task.assignedTo,
+        tags: task.tags,
+      });
+    } catch (error) {
+      // A unique series/index key makes repeated completion requests idempotent.
+      if (error.code === 11000) return null;
+      throw error;
+    }
+  }
+
   async updateTask(taskId, userId, updateData) {
     try {
-      let task = await Task.findById(taskId);
+      const allowedFields = ['title', 'description', 'status', 'priority', 'dueDate', 'timeZone', 'tags', 'reminderMinutesBefore'];
+      const safeUpdates = {};
+      for (const field of allowedFields) {
+        if (Object.prototype.hasOwnProperty.call(updateData, field)) safeUpdates[field] = updateData[field];
+      }
+      if (Object.keys(safeUpdates).length === 0) {
+        return { success: false, error: 'No valid task fields provided for update' };
+      }
+      if (Object.prototype.hasOwnProperty.call(safeUpdates, 'reminderMinutesBefore')) {
+        if (![null, 5, 15, 30, 60, 1440].includes(safeUpdates.reminderMinutesBefore)) {
+          return { success: false, error: 'Reminder must be disabled or set to a supported interval' };
+        }
+      }
+      if (Object.prototype.hasOwnProperty.call(safeUpdates, 'dueDate') || Object.prototype.hasOwnProperty.call(safeUpdates, 'reminderMinutesBefore')) {
+        const dueDate = Object.prototype.hasOwnProperty.call(safeUpdates, 'dueDate') ? safeUpdates.dueDate : undefined;
+        const reminderMinutes = Object.prototype.hasOwnProperty.call(safeUpdates, 'reminderMinutesBefore')
+          ? safeUpdates.reminderMinutesBefore
+          : undefined;
+        const existingTask = await Task.findOne({ _id: taskId, userId }).select('dueDate reminderMinutesBefore');
+        if (!existingTask) return { success: false, error: 'Task not found or not authorized' };
+        const effectiveDueDate = dueDate === undefined ? existingTask.dueDate : dueDate;
+        const effectiveReminder = reminderMinutes === undefined ? existingTask.reminderMinutesBefore : reminderMinutes;
+        safeUpdates.reminderAt = effectiveDueDate && effectiveReminder !== null
+          ? new Date(new Date(effectiveDueDate).getTime() - effectiveReminder * 60000)
+          : null;
+        safeUpdates.reminderSentAt = null;
+        safeUpdates.emailReminderSentAt = null;
+        safeUpdates.pushReminderSentAt = null;
+        safeUpdates.reminderClaimedAt = null;
+      }
+      if (safeUpdates.status === 'completed') safeUpdates.isCompleted = true;
+      else if (safeUpdates.status && safeUpdates.status !== 'completed') safeUpdates.isCompleted = false;
 
+      const task = await Task.findOneAndUpdate(
+        { _id: taskId, userId },
+        { $set: safeUpdates },
+        { new: true, runValidators: true }
+      );
       if (!task) {
-        return {
-          success: false,
-          error: 'Task not found',
-        };
+        const existing = await Task.findById(taskId);
+        if (!existing) return { success: false, error: 'Task not found' };
+        return { success: false, error: 'Not authorized to update this task' };
       }
 
-      // Check if task belongs to user
-      if (task.userId.toString() !== userId) {
-        return {
-          success: false,
-          error: 'Not authorized to update this task',
-        };
+      if (safeUpdates.status === 'completed' && task.recurrence) {
+        try {
+          await this.createNextOccurrence(task);
+        } catch (recurrenceError) {
+          console.error('Next recurring task creation failed:', recurrenceError);
+        }
       }
-
-      task = await Task.findByIdAndUpdate(taskId, updateData, {
-        new: true,
-        runValidators: true,
-      });
-
-      return {
-        success: true,
-        data: task,
-        message: 'Task updated successfully',
-      };
+      return { success: true, data: task, message: 'Task updated successfully' };
     } catch (error) {
-      return {
-        success: false,
-        error: error.message,
-      };
+      return { success: false, error: error.message };
     }
   }
 
-  // Delete task
   async deleteTask(taskId, userId) {
     try {
       const task = await Task.findById(taskId);
-
-      if (!task) {
-        return {
-          success: false,
-          error: 'Task not found',
-        };
-      }
-
-      // Check if task belongs to user
+      if (!task) return { success: false, error: 'Task not found' };
       if (task.userId.toString() !== userId) {
-        return {
-          success: false,
-          error: 'Not authorized to delete this task',
-        };
+        return { success: false, error: 'Not authorized to delete this task' };
       }
-
       await Task.findByIdAndDelete(taskId);
-
-      return {
-        success: true,
-        message: 'Task deleted successfully',
-      };
+      return { success: true, message: 'Task deleted successfully' };
     } catch (error) {
-      return {
-        success: false,
-        error: error.message,
-      };
+      return { success: false, error: error.message };
     }
   }
 
-  // Get tasks by status
   async getTasksByStatus(userId, status) {
     try {
       const tasks = await Task.find({ userId, status });
-
-      return {
-        success: true,
-        data: tasks,
-        count: tasks.length,
-      };
+      return { success: true, data: tasks, count: tasks.length };
     } catch (error) {
-      return {
-        success: false,
-        error: error.message,
-      };
+      return { success: false, error: error.message };
     }
   }
 
-  // Mark task as completed
   async completeTask(taskId, userId) {
     try {
-      const task = await Task.findById(taskId);
+      const task = await Task.findOneAndUpdate(
+        { _id: taskId, userId, status: { $ne: 'completed' } },
+        { $set: { isCompleted: true, status: 'completed' } },
+        { new: true, runValidators: true }
+      );
 
       if (!task) {
-        return {
-          success: false,
-          error: 'Task not found',
-        };
+        const existing = await Task.findById(taskId);
+        if (!existing) return { success: false, error: 'Task not found' };
+        if (existing.userId.toString() !== userId) {
+          return { success: false, error: 'Not authorized to complete this task' };
+        }
+        return { success: true, data: existing, message: 'Task was already completed' };
       }
 
-      // Check if task belongs to user
-      if (task.userId.toString() !== userId) {
-        return {
-          success: false,
-          error: 'Not authorized to complete this task',
-        };
+      if (task.recurrence) {
+        try {
+          await this.createNextOccurrence(task);
+        } catch (recurrenceError) {
+          console.error('Next recurring task creation failed:', recurrenceError);
+        }
       }
 
-      task.isCompleted = true;
-      task.status = 'completed';
-      await task.save();
-
-      // Send email notification
-      const user = await User.findById(userId);
-      if (user) {
-        await EmailService.sendTaskNotification(user, task, 'completed');
+      try {
+        const user = await User.findById(userId);
+        if (user) await EmailService.sendTaskNotification(user, task, 'completed');
+      } catch (notificationError) {
+        console.error('Task-completed notification failed:', notificationError);
       }
 
-      return {
-        success: true,
-        data: task,
-        message: 'Task marked as completed',
-      };
+      return { success: true, data: task, message: 'Task marked as completed' };
     } catch (error) {
-      return {
-        success: false,
-        error: error.message,
-      };
+      return { success: false, error: error.message };
     }
   }
 
-  // Get tasks by priority
   async getTasksByPriority(userId, priority) {
     try {
       const tasks = await Task.find({ userId, priority });
-
-      return {
-        success: true,
-        data: tasks,
-        count: tasks.length,
-      };
+      return { success: true, data: tasks, count: tasks.length };
     } catch (error) {
-      return {
-        success: false,
-        error: error.message,
-      };
+      return { success: false, error: error.message };
     }
   }
 }

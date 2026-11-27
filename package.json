@@ -1,0 +1,8 @@
+{
+  "name": "tasker-netlify-deployment",
+  "private": true,
+  "description": "Root dependencies used by Netlify Functions",
+  "dependencies": {
+    "serverless-http": "^3.2.0"
+  }
+}

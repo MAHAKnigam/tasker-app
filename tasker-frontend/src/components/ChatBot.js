@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import api from '../services/api';
 import '../styles/ChatBot.css';
 
 const ChatBot = () => {
@@ -14,7 +15,6 @@ const ChatBot = () => {
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef(null);
-  const token = localStorage.getItem('token');
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -30,31 +30,23 @@ const ChatBot = () => {
 
     // Add user message
     const userMessage = {
-      id: messages.length + 1,
+      id: Date.now(),
       text: inputValue,
       sender: 'user',
       timestamp: new Date()
     };
 
-    setMessages([...messages, userMessage]);
+    setMessages((prev) => [...prev, userMessage]);
     setInputValue('');
     setIsLoading(true);
 
     try {
-      const response = await fetch('http://localhost:5000/api/chatbot', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ message: inputValue })
-      });
-
-      const data = await response.json();
+      const response = await api.post('/chatbot', { message: inputValue });
+      const data = response.data;
 
       const botMessage = {
-        id: messages.length + 2,
-        text: data.response,
+        id: Date.now() + 1,
+        text: data.response || 'I could not generate a response. Please try again.',
         sender: 'bot',
         timestamp: new Date()
       };
@@ -62,7 +54,7 @@ const ChatBot = () => {
       setMessages((prev) => [...prev, botMessage]);
     } catch (error) {
       const errorMessage = {
-        id: messages.length + 2,
+        id: Date.now() + 1,
         text: 'Sorry, I encountered an error. Please try again.',
         sender: 'bot',
         timestamp: new Date()

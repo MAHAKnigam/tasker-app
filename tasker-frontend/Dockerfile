@@ -3,11 +3,15 @@ FROM node:22-alpine AS builder
 
 WORKDIR /app
 
+# Allow the API endpoint to be configured at image build time
+ARG REACT_APP_API_URL=http://localhost:5000
+ENV REACT_APP_API_URL=$REACT_APP_API_URL
+
 # Copy package files
 COPY package*.json ./
 
 # Install dependencies including dev dependencies for build
-RUN npm ci
+RUN npm install --no-audit --no-fund
 
 # Build the application
 RUN npm run build
@@ -27,6 +31,9 @@ COPY --from=builder /app/node_modules ./node_modules
 
 # Copy package files
 COPY package*.json ./
+
+# Install static file server before dropping privileges
+RUN npm install -g serve
 
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs && \
@@ -51,6 +58,5 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 # Use dumb-init to handle signals
 ENTRYPOINT ["dumb-init", "--"]
 
-# Start application with serve (install serve for production)
-RUN npm install -g serve
+# Start application with serve
 CMD ["serve", "-s", "build", "-l", "3000"]
